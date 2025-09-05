@@ -9,6 +9,8 @@ export function TransactionsManagement() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const transactionsPerPage = 10;
 
   useEffect(() => {
     loadTransactions();
@@ -33,6 +35,131 @@ export function TransactionsManagement() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Pagination logic
+  const totalPages = Math.ceil(transactions.length / transactionsPerPage);
+  const startIndex = (currentPage - 1) * transactionsPerPage;
+  const paginatedTransactions = transactions.slice(startIndex, startIndex + transactionsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top when changing pages
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Mobile card component
+  const TransactionCard = ({ transaction }: { transaction: Transaction }) => (
+    <div className="border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start">
+        <div className="flex-1">
+          <div className="flex justify-between">
+            <p className="text-xs text-gray-500">
+              {new Date(transaction.created_at).toLocaleDateString('id-ID')}
+            </p>
+            <p className="text-sm font-semibold text-green-600">
+              Rp{transaction.total_value.toLocaleString('id-ID')}
+            </p>
+          </div>
+          <h3 className="font-semibold text-gray-900 mt-1">{transaction.student?.name}</h3>
+          <p className="text-sm text-gray-600">{transaction.student?.class}</p>
+          <div className="flex justify-between mt-2">
+            <span className="text-sm text-gray-600">{transaction.waste_type?.name}</span>
+            <span className="text-sm font-medium text-gray-900">{transaction.weight.toFixed(1)} kg</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Pagination component
+  const Pagination = () => {
+    if (totalPages <= 1) return null;
+
+    const getPageNumbers = () => {
+      const pages = [];
+      const maxVisiblePages = 5;
+      
+      if (totalPages <= maxVisiblePages) {
+        for (let i = 1; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        // Always show first page
+        pages.push(1);
+        
+        // Show ellipsis if needed
+        if (currentPage > 3) {
+          pages.push('ellipsis-start');
+        }
+        
+        // Show pages around current page
+        for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+          pages.push(i);
+        }
+        
+        // Show ellipsis if needed
+        if (currentPage < totalPages - 2) {
+          pages.push('ellipsis-end');
+        }
+        
+        // Always show last page
+        if (totalPages > 1) {
+          pages.push(totalPages);
+        }
+      }
+      
+      return pages;
+    };
+
+    return (
+      <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3">
+        <div className="text-sm text-gray-700">
+          Menampilkan {startIndex + 1} sampai {Math.min(startIndex + transactionsPerPage, transactions.length)} dari {transactions.length} transaksi
+        </div>
+        <div className="flex items-center space-x-1">
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-3 py-1 rounded-md text-sm font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Sebelumnya
+          </button>
+          
+          {getPageNumbers().map((page, index) => {
+            if (page === 'ellipsis-start' || page === 'ellipsis-end') {
+              return (
+                <span key={index} className="px-2 py-1 text-sm text-gray-500">
+                  ...
+                </span>
+              );
+            }
+            
+            return (
+              <button
+                key={index}
+                onClick={() => handlePageChange(page as number)}
+                className={`px-3 py-1 rounded-md text-sm font-medium ${
+                  currentPage === page
+                    ? 'bg-green-600 text-white'
+                    : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                {page}
+              </button>
+            );
+          })}
+          
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1 rounded-md text-sm font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Selanjutnya
+          </button>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -64,7 +191,8 @@ export function TransactionsManagement() {
           <h3 className="text-base font-semibold text-gray-900">Riwayat Transaksi</h3>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
@@ -76,7 +204,7 @@ export function TransactionsManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {transactions.map((transaction) => (
+              {paginatedTransactions.map((transaction) => (
                 <tr key={transaction.id} className="hover:bg-gray-50">
                   <td className="py-3 px-4 text-sm text-gray-900">
                     {new Date(transaction.created_at).toLocaleDateString('id-ID')}
@@ -100,12 +228,24 @@ export function TransactionsManagement() {
           </table>
         </div>
 
+        {/* Mobile Card View */}
+        <div className="md:hidden">
+          <div className="space-y-4 p-4">
+            {paginatedTransactions.map((transaction) => (
+              <TransactionCard key={transaction.id} transaction={transaction} />
+            ))}
+          </div>
+        </div>
+
         {transactions.length === 0 && (
           <div className="text-center py-10">
             <TrendingUp className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500 text-sm">Belum ada transaksi</p>
           </div>
         )}
+
+        {/* Pagination for both views */}
+        <Pagination />
       </div>
 
       {showForm && (
