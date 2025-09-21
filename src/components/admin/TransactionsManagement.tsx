@@ -12,6 +12,37 @@ export function TransactionsManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const transactionsPerPage = 10;
 
+  // Berat per botol untuk setiap jenis sampah (dalam kg)
+  const BOTTLE_WEIGHTS: { [key: string]: number } = {
+    'Plastik': 0.05,    // 50 gram per botol plastik
+    'Kertas': 0.02,     // 20 gram per botol kertas
+    'Kaleng': 0.1,      // 100 gram per botol kaleng
+    'Botol Kaca': 0.3,  // 300 gram per botol kaca
+    'Kardus': 0.05      // 50 gram per botol kardus
+  };
+
+  // Fungsi untuk menghitung jumlah botol dari berat (legacy data)
+  const calculateBottleCount = (weight: number, wasteTypeName: string) => {
+    const bottleWeight = BOTTLE_WEIGHTS[wasteTypeName] || 0.05;
+    return Math.round(weight / bottleWeight);
+  };
+
+  // Fungsi untuk menghitung trashbag reward
+  const calculateTrashbagReward = (transaction: Transaction) => {
+    if (!transaction.waste_type) return 0;
+
+    // Jika weight > 0, ini data legacy, hitung dari weight
+    if (transaction.weight > 0) {
+      const bottleCount = calculateBottleCount(transaction.weight, transaction.waste_type.name);
+      const trashbagsPerBottle = transaction.waste_type.trashbags_per_bottle || 20;
+      return Math.floor(bottleCount / trashbagsPerBottle);
+    }
+
+    // Untuk data baru, kita tidak bisa menghitung karena tidak ada bottle count tersimpan
+    // Ini perlu perbaikan database untuk menyimpan bottle_count
+    return 0;
+  };
+
   useEffect(() => {
     loadTransactions();
   }, []);
@@ -58,14 +89,14 @@ export function TransactionsManagement() {
               {new Date(transaction.created_at).toLocaleDateString('id-ID')}
             </p>
             <p className="text-sm font-semibold text-green-600">
-              Rp{transaction.total_value.toLocaleString('id-ID')}
+              {calculateTrashbagReward(transaction)} 🎁
             </p>
           </div>
           <h3 className="font-semibold text-gray-900 mt-1">{transaction.student?.name}</h3>
           <p className="text-sm text-gray-600">{transaction.student?.class}</p>
           <div className="flex justify-between mt-2">
             <span className="text-sm text-gray-600">{transaction.waste_type?.name}</span>
-            <span className="text-sm font-medium text-gray-900">{transaction.weight.toFixed(1)} kg</span>
+            <span className="text-sm font-medium text-gray-900">{calculateBottleCount(transaction.weight, transaction.waste_type?.name || '')} botol</span>
           </div>
         </div>
       </div>
@@ -199,8 +230,8 @@ export function TransactionsManagement() {
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-900">Tanggal</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-900">Siswa</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-900">Jenis Sampah</th>
-                <th className="text-right py-3 px-4 text-xs font-semibold text-gray-900">Berat (kg)</th>
-                <th className="text-right py-3 px-4 text-xs font-semibold text-gray-900">Nilai (Rp)</th>
+                <th className="text-right py-3 px-4 text-xs font-semibold text-gray-900">Jumlah Botol</th>
+                <th className="text-right py-3 px-4 text-xs font-semibold text-gray-900">Reward</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -217,10 +248,10 @@ export function TransactionsManagement() {
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-900">{transaction.waste_type?.name}</td>
                   <td className="py-3 px-4 text-right font-medium text-gray-900 text-sm">
-                    {transaction.weight.toFixed(1)}
+                    {calculateBottleCount(transaction.weight, transaction.waste_type?.name || '')} botol
                   </td>
                   <td className="py-3 px-4 text-right font-medium text-green-600 text-sm">
-                    {transaction.total_value.toLocaleString('id-ID')}
+                    {calculateTrashbagReward(transaction)} 🎁
                   </td>
                 </tr>
               ))}

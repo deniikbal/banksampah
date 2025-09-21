@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { DashboardOverview } from './DashboardOverview';
 import { StudentsManagement } from './StudentsManagement';
+import { ClassesManagement } from './ClassesManagement';
 import { WasteTypesManagement } from './WasteTypesManagement';
 import { TransactionsManagement } from './TransactionsManagement';
 import { WithdrawalsManagement } from './WithdrawalsManagement';
@@ -16,7 +17,8 @@ import {
   LogOut,
   Recycle,
   Menu,
-  X
+  X,
+  School
 } from 'lucide-react';
 
 export function AdminDashboard() {
@@ -27,6 +29,7 @@ export function AdminDashboard() {
   const tabs = [
     { id: 'overview', label: 'Dashboard', icon: BarChart3 },
     { id: 'students', label: 'Data Siswa', icon: Users },
+    { id: 'classes', label: 'Data Kelas', icon: School },
     { id: 'waste-types', label: 'Jenis Sampah', icon: Package },
     { id: 'transactions', label: 'Transaksi', icon: TrendingUp },
     { id: 'withdrawals', label: 'Penarikan', icon: ArrowDown },
@@ -163,6 +166,7 @@ export function AdminDashboard() {
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
           {activeTab === 'overview' && <DashboardOverview />}
           {activeTab === 'students' && <StudentsManagement />}
+          {activeTab === 'classes' && <ClassesManagement />}
           {activeTab === 'waste-types' && <WasteTypesManagement />}
           {activeTab === 'transactions' && <TransactionsManagement />}
           {activeTab === 'withdrawals' && <WithdrawalsManagement />}

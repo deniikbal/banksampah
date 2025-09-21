@@ -112,10 +112,13 @@ export function WasteTypesManagement() {
               </div>
             </div>
             
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs text-gray-600">Harga per kilogram</p>
-              <p className="text-lg font-bold text-gray-900">
-                Rp {wasteType.price_per_kg.toLocaleString('id-ID')}
+            <div className="bg-green-50 rounded-lg p-3">
+              <p className="text-xs text-green-600">Reward System</p>
+              <p className="text-lg font-bold text-green-800">
+                1 trashbag per {wasteType.trashbags_per_bottle} botol
+              </p>
+              <p className="text-xs text-green-600 mt-1">
+                Siswa mendapatkan trashbag setiap mengumpulkan {wasteType.trashbags_per_bottle} botol
               </p>
             </div>
           </div>

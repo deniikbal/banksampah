@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Student } from '../../types';
+import { Student, Class } from '../../types';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -17,6 +17,29 @@ export function StudentForm({ student, onClose, onSubmit }: StudentFormProps) {
     class: student?.class || ''
   });
   const [loading, setLoading] = useState(false);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [classesLoading, setClassesLoading] = useState(true);
+
+  useEffect(() => {
+    loadClasses();
+  }, []);
+
+  const loadClasses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setClasses(data || []);
+    } catch (error) {
+      console.error('Error loading classes:', error);
+      toast.error('Gagal memuat data kelas');
+    } finally {
+      setClassesLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,15 +138,26 @@ export function StudentForm({ student, onClose, onSubmit }: StudentFormProps) {
             <label htmlFor="class" className="block text-sm font-medium text-gray-700 mb-1">
               Kelas
             </label>
-            <input
-              type="text"
-              id="class"
-              value={formData.class}
-              onChange={(e) => setFormData({ ...formData, class: e.target.value })}
-              placeholder="Contoh: 10 IPA 1"
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              required
-            />
+            {classesLoading ? (
+              <div className="w-full px-3 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg">
+                Memuat kelas...
+              </div>
+            ) : (
+              <select
+                id="class"
+                value={formData.class}
+                onChange={(e) => setFormData({ ...formData, class: e.target.value })}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                required
+              >
+                <option value="">Pilih Kelas</option>
+                {classes.map((cls) => (
+                  <option key={cls.id} value={cls.name}>
+                    {cls.name} - {cls.teacher}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div className="flex gap-2 pt-4">
@@ -136,7 +170,7 @@ export function StudentForm({ student, onClose, onSubmit }: StudentFormProps) {
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || classesLoading}
               className="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg transition-colors text-sm"
             >
               {loading ? 'Menyimpan...' : 'Simpan'}

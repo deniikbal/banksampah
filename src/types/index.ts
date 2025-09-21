@@ -9,7 +9,7 @@ export interface Student {
 export interface WasteType {
   id: string;
   name: string;
-  price_per_kg: number;
+  trashbags_per_bottle: number;
   created_at: string;
 }
 
@@ -67,4 +67,12 @@ export interface DashboardStats {
     totalTransactions: number;
     totalWeight: number;
   }>;
+}
+
+export interface Class {
+  id: string;
+  name: string;
+  teacher: string;
+  created_at: string;
+  updated_at: string;
 }

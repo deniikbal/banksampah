@@ -13,7 +13,7 @@ interface WasteTypeFormProps {
 export function WasteTypeForm({ wasteType, onClose, onSubmit }: WasteTypeFormProps) {
   const [formData, setFormData] = useState({
     name: wasteType?.name || '',
-    price_per_kg: wasteType?.price_per_kg?.toString() || ''
+    trashbags_per_bottle: wasteType?.trashbags_per_bottle?.toString() || '20'
   });
   const [loading, setLoading] = useState(false);
 
@@ -24,7 +24,7 @@ export function WasteTypeForm({ wasteType, onClose, onSubmit }: WasteTypeFormPro
     try {
       const data = {
         name: formData.name,
-        price_per_kg: parseFloat(formData.price_per_kg)
+        trashbags_per_bottle: parseInt(formData.trashbags_per_bottle)
       };
 
       if (wasteType) {
@@ -85,20 +85,23 @@ export function WasteTypeForm({ wasteType, onClose, onSubmit }: WasteTypeFormPro
           </div>
 
           <div>
-            <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
-              Harga per Kilogram (Rp)
+            <label htmlFor="trashbags" className="block text-sm font-medium text-gray-700 mb-1">
+              Reward (1 trashbag per X botol)
             </label>
             <input
               type="number"
-              id="price"
-              value={formData.price_per_kg}
-              onChange={(e) => setFormData({ ...formData, price_per_kg: e.target.value })}
-              placeholder="Contoh: 2000"
-              min="0"
-              step="100"
+              id="trashbags"
+              value={formData.trashbags_per_bottle}
+              onChange={(e) => setFormData({ ...formData, trashbags_per_bottle: e.target.value })}
+              placeholder="Contoh: 20"
+              min="1"
+              step="1"
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               required
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Contoh: 20 = siswa mendapatkan 1 trashbag untuk setiap 20 botol yang dikumpulkan
+            </p>
           </div>
 
           <div className="flex gap-2 pt-4">
