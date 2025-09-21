@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Withdrawal } from '../../types';
+import { TrashbagWithdrawal } from '../../types';
 import { CheckCircle, XCircle, Clock, ArrowDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export function WithdrawalsManagement() {
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+export function TrashbagWithdrawalsManagement() {
+  const [withdrawals, setWithdrawals] = useState<TrashbagWithdrawal[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,7 +15,7 @@ export function WithdrawalsManagement() {
   const loadWithdrawals = async () => {
     try {
       const { data, error } = await supabase
-        .from('withdrawals')
+        .from('trashbag_withdrawals')
         .select(`
           *,
           student:students(*)
@@ -25,51 +25,28 @@ export function WithdrawalsManagement() {
       if (error) throw error;
       setWithdrawals(data || []);
     } catch (error) {
-      console.error('Error loading withdrawals:', error);
-      toast.error('Gagal memuat data penarikan');
+      console.error('Error loading trashbag withdrawals:', error);
+      toast.error('Gagal memuat data penarikan trashbag');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStatusUpdate = async (withdrawalId: string, status: 'approved' | 'rejected', amount?: number, studentId?: string) => {
+  const handleStatusUpdate = async (withdrawalId: string, status: 'approved' | 'rejected') => {
     try {
-      // Update withdrawal status
+      // Update trashbag withdrawal status
       const { error: withdrawalError } = await supabase
-        .from('withdrawals')
+        .from('trashbag_withdrawals')
         .update({ status })
         .eq('id', withdrawalId);
 
       if (withdrawalError) throw withdrawalError;
 
-      // If approved, update student balance
-      if (status === 'approved' && amount && studentId) {
-        const { data: currentSavings, error: savingsSelectError } = await supabase
-          .from('savings')
-          .select('balance')
-          .eq('student_id', studentId)
-          .single();
-
-        if (savingsSelectError) throw savingsSelectError;
-
-        const newBalance = (currentSavings.balance || 0) - amount;
-        
-        const { error: savingsUpdateError } = await supabase
-          .from('savings')
-          .update({
-            balance: newBalance,
-            updated_at: new Date().toISOString()
-          })
-          .eq('student_id', studentId);
-
-        if (savingsUpdateError) throw savingsUpdateError;
-      }
-
       toast.success(`Penarikan ${status === 'approved' ? 'disetujui' : 'ditolak'}`);
       loadWithdrawals();
     } catch (error) {
-      console.error('Error updating withdrawal:', error);
-      toast.error('Gagal memperbarui status penarikan');
+      console.error('Error updating trashbag withdrawal:', error);
+      toast.error('Gagal memperbarui status penarikan trashbag');
     }
   };
 
@@ -100,13 +77,13 @@ export function WithdrawalsManagement() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Kelola Penarikan</h1>
-        <p className="text-gray-600 text-sm">Setujui atau tolak pengajuan penarikan saldo</p>
+        <h1 className="text-2xl font-bold text-gray-900">Kelola Penarikan Trashbag</h1>
+        <p className="text-gray-600 text-sm">Setujui atau tolak pengajuan penarikan trashbag</p>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-4 border-b border-gray-200">
-          <h3 className="text-base font-semibold text-gray-900">Daftar Pengajuan Penarikan</h3>
+          <h3 className="text-base font-semibold text-gray-900">Daftar Pengajuan Penarikan Trashbag</h3>
         </div>
 
         <div className="divide-y divide-gray-200">
@@ -136,7 +113,7 @@ export function WithdrawalsManagement() {
                   
                   <div className="text-right sm:text-right">
                     <p className="text-lg font-bold text-blue-600">
-                      Rp {withdrawal.amount.toLocaleString('id-ID')}
+                      {withdrawal.amount} trashbag
                     </p>
                     <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(withdrawal.status)}`}>
                       <StatusIcon className="w-3 h-3" />
@@ -147,7 +124,7 @@ export function WithdrawalsManagement() {
                     {withdrawal.status === 'pending' && (
                       <div className="flex gap-2 mt-2">
                         <button
-                          onClick={() => handleStatusUpdate(withdrawal.id, 'approved', withdrawal.amount, withdrawal.student_id)}
+                          onClick={() => handleStatusUpdate(withdrawal.id, 'approved')}
                           className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm transition-colors"
                         >
                           Setuju
@@ -170,7 +147,7 @@ export function WithdrawalsManagement() {
         {withdrawals.length === 0 && (
           <div className="text-center py-10">
             <ArrowDown className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">Belum ada pengajuan penarikan</p>
+            <p className="text-gray-500 text-sm">Belum ada pengajuan penarikan trashbag</p>
           </div>
         )}
       </div>

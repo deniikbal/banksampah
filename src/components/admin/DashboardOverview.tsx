@@ -34,7 +34,7 @@ export function DashboardOverview() {
 
       const totalStudents = studentsRes.count || 0;
       const transactions = transactionsRes.data || [];
-      const totalWasteCollected = transactions.reduce((sum, t) => sum + t.weight, 0);
+      const totalBottlesCollected = transactions.reduce((sum, t) => sum + (t.bottle_count || 0), 0);
       const totalSavings = savingsRes.data?.reduce((sum, s) => sum + s.balance, 0) || 0;
       const pendingWithdrawals = withdrawalsRes.count || 0;
 
@@ -42,12 +42,11 @@ export function DashboardOverview() {
       const wasteByType = transactions.reduce((acc, t) => {
         const typeName = t.waste_type?.name || 'Unknown';
         if (!acc[typeName]) {
-          acc[typeName] = { name: typeName, weight: 0, value: 0 };
+          acc[typeName] = { name: typeName, bottles: 0 };
         }
-        acc[typeName].weight += t.weight;
-        acc[typeName].value += t.total_value;
+        acc[typeName].bottles += t.bottle_count || 0;
         return acc;
-      }, {} as Record<string, { name: string; weight: number; value: number }>);
+      }, {} as Record<string, { name: string; bottles: number }>);
 
       // Monthly data for the last 6 months
       const monthlyData = [];
@@ -56,26 +55,25 @@ export function DashboardOverview() {
         date.setMonth(date.getMonth() - i);
         const monthTransactions = transactions.filter(t => {
           const transactionDate = new Date(t.created_at);
-          return transactionDate.getMonth() === date.getMonth() && 
+          return transactionDate.getMonth() === date.getMonth() &&
                  transactionDate.getFullYear() === date.getFullYear();
         });
-        
+
         monthlyData.push({
           month: date.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }),
-          weight: monthTransactions.reduce((sum, t) => sum + t.weight, 0),
-          value: monthTransactions.reduce((sum, t) => sum + t.total_value, 0)
+          bottles: monthTransactions.reduce((sum, t) => sum + (t.bottle_count || 0), 0)
         });
       }
 
       // Top students
       const studentStats = transactions.reduce((acc, t) => {
         if (!acc[t.student_id]) {
-          acc[t.student_id] = { totalTransactions: 0, totalWeight: 0 };
+          acc[t.student_id] = { totalTransactions: 0, totalBottles: 0 };
         }
         acc[t.student_id].totalTransactions += 1;
-        acc[t.student_id].totalWeight += t.weight;
+        acc[t.student_id].totalBottles += t.bottle_count || 0;
         return acc;
-      }, {} as Record<string, { totalTransactions: number; totalWeight: number }>);
+      }, {} as Record<string, { totalTransactions: number; totalBottles: number }>);
 
       const { data: studentsData } = await supabase
         .from('students')
@@ -87,12 +85,12 @@ export function DashboardOverview() {
           ...stats
         }))
         .filter(s => s.student)
-        .sort((a, b) => b.totalWeight - a.totalWeight)
+        .sort((a, b) => b.totalBottles - a.totalBottles)
         .slice(0, 5);
 
       setStats({
         totalStudents,
-        totalWasteCollected,
+        totalBottlesCollected,
         totalSavings,
         pendingWithdrawals,
         wasteByType: Object.values(wasteByType),
@@ -134,7 +132,7 @@ export function DashboardOverview() {
             </div>
             <div>
               <p className="text-xs text-gray-600">Total Siswa</p>
-              <p className="text-xl font-bold text-gray-900">{stats.totalStudents}</p>
+              <p className="text-xl font-bold text-gray-900">{stats.totalStudents || 0}</p>
             </div>
           </div>
         </div>
@@ -145,8 +143,8 @@ export function DashboardOverview() {
               <Package className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-600">Sampah Terkumpul</p>
-              <p className="text-xl font-bold text-gray-900">{stats.totalWasteCollected.toFixed(1)} kg</p>
+              <p className="text-xs text-gray-600">Botol Terkumpul</p>
+              <p className="text-xl font-bold text-gray-900">{stats.totalBottlesCollected || 0} botol</p>
             </div>
           </div>
         </div>
@@ -159,7 +157,7 @@ export function DashboardOverview() {
             <div>
               <p className="text-xs text-gray-600">Total Saldo</p>
               <p className="text-xl font-bold text-gray-900">
-                Rp {stats.totalSavings.toLocaleString('id-ID')}
+                Rp {(stats.totalSavings || 0).toLocaleString('id-ID')}
               </p>
             </div>
           </div>
@@ -172,7 +170,7 @@ export function DashboardOverview() {
             </div>
             <div>
               <p className="text-xs text-gray-600">Penarikan Pending</p>
-              <p className="text-xl font-bold text-gray-900">{stats.pendingWithdrawals}</p>
+              <p className="text-xl font-bold text-gray-900">{stats.pendingWithdrawals || 0}</p>
             </div>
           </div>
         </div>
@@ -181,19 +179,19 @@ export function DashboardOverview() {
       {/* Charts */}
       <div className="grid grid-cols-1 gap-6">
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-          <h3 className="text-base font-semibold text-gray-900 mb-3">Sampah per Bulan</h3>
+          <h3 className="text-base font-semibold text-gray-900 mb-3">Botol per Bulan</h3>
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={stats.monthlyData}>
+            <BarChart data={stats.monthlyData || []}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
               <YAxis />
-              <Tooltip 
+              <Tooltip
                 formatter={(value, name) => [
-                  name === 'weight' ? `${value} kg` : `Rp ${Number(value).toLocaleString('id-ID')}`,
-                  name === 'weight' ? 'Berat' : 'Nilai'
+                  name === 'bottles' ? `${value} botol` : `Rp ${Number(value).toLocaleString('id-ID')}`,
+                  name === 'bottles' ? 'Botol' : 'Nilai'
                 ]}
               />
-              <Bar dataKey="weight" fill="#10B981" name="weight" />
+              <Bar dataKey="bottles" fill="#10B981" name="bottles" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -203,18 +201,18 @@ export function DashboardOverview() {
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie
-                data={stats.wasteByType}
+                data={stats.wasteByType || []}
                 cx="50%"
                 cy="50%"
                 outerRadius={60}
-                dataKey="weight"
-                label={({ name, weight }) => `${name}: ${weight.toFixed(1)}kg`}
+                dataKey="bottles"
+                label={({ name, bottles }) => `${name}: ${bottles} botol`}
               >
-                {stats.wasteByType.map((_, index) => (
+                {(stats.wasteByType || []).map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value) => [`${value} kg`, 'Berat']} />
+              <Tooltip formatter={(value) => [`${value} botol`, 'Botol']} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -226,11 +224,11 @@ export function DashboardOverview() {
           <Award className="w-4 h-4 text-yellow-500" />
           Siswa Teraktif
         </h3>
-        {stats.topStudents.length === 0 ? (
+        {(stats.topStudents || []).length === 0 ? (
           <p className="text-gray-500 text-center py-6">Belum ada data transaksi</p>
         ) : (
           <div className="space-y-3">
-            {stats.topStudents.map((student, index) => (
+            {(stats.topStudents || []).map((student, index) => (
               <div key={student.student.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -247,7 +245,7 @@ export function DashboardOverview() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium text-gray-900">{student.totalWeight.toFixed(1)} kg</p>
+                  <p className="font-medium text-gray-900">{student.totalBottles} botol</p>
                   <p className="text-xs text-gray-600">{student.totalTransactions} transaksi</p>
                 </div>
               </div>

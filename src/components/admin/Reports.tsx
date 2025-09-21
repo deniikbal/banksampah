@@ -49,18 +49,16 @@ export function Reports() {
       if (studentsError) throw studentsError;
 
       // Calculate statistics
-      const totalWeight = transactions?.reduce((sum, t) => sum + t.weight, 0) || 0;
-      const totalValue = transactions?.reduce((sum, t) => sum + t.total_value, 0) || 0;
+      const totalBottles = transactions?.reduce((sum, t) => sum + (t.bottle_count || 0), 0) || 0;
       const totalSavings = students?.reduce((sum, s) => sum + (s.savings?.[0]?.balance || 0), 0) || 0;
 
       // Group by waste type
       const wasteStats = transactions?.reduce((acc, t) => {
         const typeName = t.waste_type?.name || 'Unknown';
         if (!acc[typeName]) {
-          acc[typeName] = { name: typeName, weight: 0, value: 0, count: 0 };
+          acc[typeName] = { name: typeName, bottleCount: 0, count: 0 };
         }
-        acc[typeName].weight += t.weight;
-        acc[typeName].value += t.total_value;
+        acc[typeName].bottleCount += t.bottle_count || 0;
         acc[typeName].count += 1;
         return acc;
       }, {} as Record<string, any>) || {};
@@ -69,15 +67,13 @@ export function Reports() {
       const studentStats = transactions?.reduce((acc, t) => {
         const studentId = t.student_id;
         if (!acc[studentId]) {
-          acc[studentId] = { 
-            student: t.student, 
-            totalWeight: 0, 
-            totalValue: 0, 
-            transactionCount: 0 
+          acc[studentId] = {
+            student: t.student,
+            totalBottles: 0,
+            transactionCount: 0
           };
         }
-        acc[studentId].totalWeight += t.weight;
-        acc[studentId].totalValue += t.total_value;
+        acc[studentId].totalBottles += t.bottle_count || 0;
         acc[studentId].transactionCount += 1;
         return acc;
       }, {} as Record<string, any>) || {};
@@ -86,14 +82,13 @@ export function Reports() {
         transactions: transactions || [],
         students: students || [],
         summary: {
-          totalWeight,
-          totalValue,
+          totalBottles,
           totalSavings,
           transactionCount: transactions?.length || 0,
           studentCount: students?.length || 0
         },
         wasteStats: Object.values(wasteStats),
-        topStudents: Object.values(studentStats).sort((a: any, b: any) => b.totalWeight - a.totalWeight).slice(0, 10)
+        topStudents: Object.values(studentStats).sort((a: any, b: any) => b.totalBottles - a.totalBottles).slice(0, 10)
       });
     } catch (error) {
       console.error('Error loading report data:', error);
@@ -116,8 +111,7 @@ export function Reports() {
       ['RINGKASAN'],
       ['Total Siswa', reportData.summary.studentCount],
       ['Total Transaksi', reportData.summary.transactionCount],
-      ['Total Berat Sampah', `${reportData.summary.totalWeight.toFixed(2)} kg`],
-      ['Total Nilai Transaksi', `Rp ${reportData.summary.totalValue.toLocaleString('id-ID')}`],
+      ['Total Botol', `${reportData.summary.totalBottles} botol`],
       ['Total Saldo Siswa', `Rp ${reportData.summary.totalSavings.toLocaleString('id-ID')}`]
     ];
 
@@ -126,14 +120,14 @@ export function Reports() {
 
     // Transactions sheet
     const transactionsData = [
-      ['Tanggal', 'Siswa', 'Kelas', 'Jenis Sampah', 'Berat (kg)', 'Nilai (Rp)'],
+      ['Tanggal', 'Siswa', 'Kelas', 'Jenis Sampah', 'Jumlah Botol', 'Trashbag Reward'],
       ...reportData.transactions.map((t: any) => [
         new Date(t.created_at).toLocaleDateString('id-ID'),
         t.student?.name || '',
         t.student?.class || '',
         t.waste_type?.name || '',
-        t.weight,
-        t.total_value
+        t.bottle_count || 0,
+        t.trashbag_reward || 0
       ])
     ];
 
@@ -168,9 +162,7 @@ export function Reports() {
     y += 10;
     pdf.text(`Total Transaksi: ${reportData.summary.transactionCount}`, 20, y);
     y += 10;
-    pdf.text(`Total Berat Sampah: ${reportData.summary.totalWeight.toFixed(2)} kg`, 20, y);
-    y += 10;
-    pdf.text(`Total Nilai Transaksi: Rp ${reportData.summary.totalValue.toLocaleString('id-ID')}`, 20, y);
+    pdf.text(`Total Botol: ${reportData.summary.totalBottles} botol`, 20, y);
     y += 10;
     pdf.text(`Total Saldo Siswa: Rp ${reportData.summary.totalSavings.toLocaleString('id-ID')}`, 20, y);
 
@@ -182,7 +174,7 @@ export function Reports() {
     y += 15;
     pdf.setFontSize(11);
     reportData.topStudents.slice(0, 5).forEach((student: any, index: number) => {
-      pdf.text(`${index + 1}. ${student.student?.name} - ${student.totalWeight.toFixed(2)} kg`, 20, y);
+      pdf.text(`${index + 1}. ${student.student?.name} - ${student.totalBottles} botol`, 20, y);
       y += 10;
     });
 
@@ -260,8 +252,8 @@ export function Reports() {
           <p className="text-xl font-bold text-gray-900">{reportData?.summary.transactionCount || 0}</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-          <h3 className="text-xs text-gray-600 mb-1">Total Berat</h3>
-          <p className="text-xl font-bold text-green-600">{reportData?.summary.totalWeight.toFixed(1) || 0} kg</p>
+          <h3 className="text-xs text-gray-600 mb-1">Total Botol</h3>
+          <p className="text-xl font-bold text-green-600">{reportData?.summary.totalBottles || 0} botol</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
           <h3 className="text-xs text-gray-600 mb-1">Total Nilai</h3>
@@ -289,9 +281,9 @@ export function Reports() {
                   <p className="text-xs text-gray-600">{waste.count} transaksi</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold text-gray-900 text-sm">{waste.weight.toFixed(1)} kg</p>
+                  <p className="font-semibold text-gray-900 text-sm">{waste.bottleCount} botol</p>
                   <p className="text-xs text-gray-600">
-                    Rp {waste.value.toLocaleString('id-ID')}
+                    {waste.count} transaksi
                   </p>
                 </div>
               </div>
@@ -314,7 +306,7 @@ export function Reports() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold text-gray-900 text-sm">{student.totalWeight.toFixed(1)} kg</p>
+                  <p className="font-semibold text-gray-900 text-sm">{student.totalBottles} botol</p>
                   <p className="text-xs text-gray-600">{student.transactionCount} transaksi</p>
                 </div>
               </div>

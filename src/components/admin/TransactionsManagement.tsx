@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Transaction, Student, WasteType } from '../../types';
-import { Plus, TrendingUp } from 'lucide-react';
+import { Plus, TrendingUp, Edit, Trash2 } from 'lucide-react';
 import { TransactionForm } from './TransactionForm';
 import toast from 'react-hot-toast';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 
 export function TransactionsManagement() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const transactionsPerPage = 10;
+  const [transactionsPerPage, setTransactionsPerPage] = useState(10);
 
   // Berat per botol untuk setiap jenis sampah (dalam kg)
   const BOTTLE_WEIGHTS: { [key: string]: number } = {
@@ -21,26 +26,30 @@ export function TransactionsManagement() {
     'Kardus': 0.05      // 50 gram per botol kardus
   };
 
-  // Fungsi untuk menghitung jumlah botol dari berat (legacy data)
-  const calculateBottleCount = (weight: number, wasteTypeName: string) => {
-    const bottleWeight = BOTTLE_WEIGHTS[wasteTypeName] || 0.05;
-    return Math.round(weight / bottleWeight);
-  };
-
-  // Fungsi untuk menghitung trashbag reward
-  const calculateTrashbagReward = (transaction: Transaction) => {
-    if (!transaction.waste_type) return 0;
-
-    // Jika weight > 0, ini data legacy, hitung dari weight
-    if (transaction.weight > 0) {
-      const bottleCount = calculateBottleCount(transaction.weight, transaction.waste_type.name);
-      const trashbagsPerBottle = transaction.waste_type.trashbags_per_bottle || 20;
-      return Math.floor(bottleCount / trashbagsPerBottle);
+  // Fungsi untuk mendapatkan jumlah botol (prioritas data asli, fallback ke konversi untuk legacy data)
+  const getBottleCount = (transaction: Transaction) => {
+    // Gunakan bottle_count asli jika tersedia
+    if (transaction.bottle_count && transaction.bottle_count > 0) {
+      return transaction.bottle_count;
     }
 
-    // Untuk data baru, kita tidak bisa menghitung karena tidak ada bottle count tersimpan
-    // Ini perlu perbaikan database untuk menyimpan bottle_count
-    return 0;
+    // Fallback: gunakan bottle_count yang sudah ada atau 0
+    return transaction.bottle_count || 0;
+  };
+
+  // Fungsi untuk mendapatkan trashbag reward (prioritas data asli, fallback ke perhitungan untuk legacy data)
+  const getTrashbagReward = (transaction: Transaction) => {
+    // Gunakan trashbag_reward asli jika tersedia
+    if (transaction.trashbag_reward && transaction.trashbag_reward > 0) {
+      return transaction.trashbag_reward;
+    }
+
+    // Fallback: hitung dari bottle_count untuk legacy data
+    if (!transaction.waste_type) return 0;
+
+    const bottleCount = getBottleCount(transaction);
+    const trashbagsPerBottle = transaction.waste_type.trashbags_per_bottle || 20;
+    return Math.floor(bottleCount / trashbagsPerBottle);
   };
 
   useEffect(() => {
@@ -68,6 +77,45 @@ export function TransactionsManagement() {
     }
   };
 
+  const handleEdit = (transaction: Transaction) => {
+    setEditingTransaction(transaction);
+    setShowForm(true);
+  };
+
+  const handleDelete = (transaction: Transaction) => {
+    setTransactionToDelete(transaction);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!transactionToDelete) return;
+
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', transactionToDelete.id);
+
+      if (error) throw error;
+
+      toast.success('Transaksi berhasil dihapus');
+      setShowDeleteConfirm(false);
+      setTransactionToDelete(null);
+      loadTransactions();
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      toast.error('Gagal menghapus transaksi');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setTransactionToDelete(null);
+  };
+
   // Pagination logic
   const totalPages = Math.ceil(transactions.length / transactionsPerPage);
   const startIndex = (currentPage - 1) * transactionsPerPage;
@@ -76,7 +124,15 @@ export function TransactionsManagement() {
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     // Scroll to top when changing pages
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const tableElement = document.querySelector('.bg-white.rounded-xl.shadow-sm');
+    if (tableElement) {
+      tableElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const handleTransactionsPerPageChange = (value: number) => {
+    setTransactionsPerPage(value);
+    setCurrentPage(1); // Reset to first page when changing items per page
   };
 
   // Mobile card component
@@ -89,15 +145,29 @@ export function TransactionsManagement() {
               {new Date(transaction.created_at).toLocaleDateString('id-ID')}
             </p>
             <p className="text-sm font-semibold text-green-600">
-              {calculateTrashbagReward(transaction)} 🎁
+              {getTrashbagReward(transaction)} 🎁
             </p>
           </div>
           <h3 className="font-semibold text-gray-900 mt-1">{transaction.student?.name}</h3>
           <p className="text-sm text-gray-600">{transaction.student?.class}</p>
           <div className="flex justify-between mt-2">
             <span className="text-sm text-gray-600">{transaction.waste_type?.name}</span>
-            <span className="text-sm font-medium text-gray-900">{calculateBottleCount(transaction.weight, transaction.waste_type?.name || '')} botol</span>
+            <span className="text-sm font-medium text-gray-900">{getBottleCount(transaction)} botol</span>
           </div>
+        </div>
+        <div className="flex gap-1 ml-2">
+          <button
+            onClick={() => handleEdit(transaction)}
+            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleDelete(transaction)}
+            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
@@ -105,12 +175,12 @@ export function TransactionsManagement() {
 
   // Pagination component
   const Pagination = () => {
-    if (totalPages <= 1) return null;
+    if (totalPages <= 1 && transactions.length <= transactionsPerPage) return null;
 
     const getPageNumbers = () => {
       const pages = [];
       const maxVisiblePages = 5;
-      
+
       if (totalPages <= maxVisiblePages) {
         for (let i = 1; i <= totalPages; i++) {
           pages.push(i);
@@ -118,35 +188,98 @@ export function TransactionsManagement() {
       } else {
         // Always show first page
         pages.push(1);
-        
+
         // Show ellipsis if needed
         if (currentPage > 3) {
           pages.push('ellipsis-start');
         }
-        
+
         // Show pages around current page
         for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
           pages.push(i);
         }
-        
+
         // Show ellipsis if needed
         if (currentPage < totalPages - 2) {
           pages.push('ellipsis-end');
         }
-        
+
         // Always show last page
         if (totalPages > 1) {
           pages.push(totalPages);
         }
       }
-      
+
       return pages;
     };
 
-    return (
-      <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3">
-        <div className="text-sm text-gray-700">
-          Menampilkan {startIndex + 1} sampai {Math.min(startIndex + transactionsPerPage, transactions.length)} dari {transactions.length} transaksi
+    // Mobile pagination component
+    const MobilePagination = () => (
+      <div className="flex flex-col sm:hidden gap-3 border-t border-gray-200 px-4 py-3">
+        <div className="text-sm text-gray-700 text-center">
+          Menampilkan {startIndex + 1}-{Math.min(startIndex + transactionsPerPage, transactions.length)} dari {transactions.length} transaksi
+        </div>
+        <div className="flex items-center justify-center gap-2">
+          <label htmlFor="mobile-transactions-per-page" className="text-sm text-gray-600">
+            Tampilkan:
+          </label>
+          <select
+            id="mobile-transactions-per-page"
+            value={transactionsPerPage}
+            onChange={(e) => handleTransactionsPerPageChange(Number(e.target.value))}
+            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          >
+            <option value={5}>5</option>
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+          </select>
+        </div>
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-3 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex-1 mr-2"
+          >
+            Sebelumnya
+          </button>
+          <div className="text-sm text-gray-600">
+            Hal {currentPage} dari {totalPages}
+          </div>
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="px-3 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex-1 ml-2"
+          >
+            Selanjutnya
+          </button>
+        </div>
+      </div>
+    );
+
+    // Desktop pagination component
+    const DesktopPagination = () => (
+      <div className="hidden sm:flex items-center justify-between border-t border-gray-200 px-4 py-3">
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-gray-700">
+            Menampilkan {startIndex + 1} sampai {Math.min(startIndex + transactionsPerPage, transactions.length)} dari {transactions.length} transaksi
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="transactions-per-page" className="text-sm text-gray-600">
+              Tampilkan:
+            </label>
+            <select
+              id="transactions-per-page"
+              value={transactionsPerPage}
+              onChange={(e) => handleTransactionsPerPageChange(Number(e.target.value))}
+              className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
         </div>
         <div className="flex items-center space-x-1">
           <button
@@ -156,7 +289,7 @@ export function TransactionsManagement() {
           >
             Sebelumnya
           </button>
-          
+
           {getPageNumbers().map((page, index) => {
             if (page === 'ellipsis-start' || page === 'ellipsis-end') {
               return (
@@ -165,7 +298,7 @@ export function TransactionsManagement() {
                 </span>
               );
             }
-            
+
             return (
               <button
                 key={index}
@@ -180,7 +313,7 @@ export function TransactionsManagement() {
               </button>
             );
           })}
-          
+
           <button
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
@@ -190,6 +323,13 @@ export function TransactionsManagement() {
           </button>
         </div>
       </div>
+    );
+
+    return (
+      <>
+        <MobilePagination />
+        <DesktopPagination />
+      </>
     );
   };
 
@@ -232,6 +372,7 @@ export function TransactionsManagement() {
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-900">Jenis Sampah</th>
                 <th className="text-right py-3 px-4 text-xs font-semibold text-gray-900">Jumlah Botol</th>
                 <th className="text-right py-3 px-4 text-xs font-semibold text-gray-900">Reward</th>
+                <th className="text-center py-3 px-4 text-xs font-semibold text-gray-900">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -248,10 +389,26 @@ export function TransactionsManagement() {
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-900">{transaction.waste_type?.name}</td>
                   <td className="py-3 px-4 text-right font-medium text-gray-900 text-sm">
-                    {calculateBottleCount(transaction.weight, transaction.waste_type?.name || '')} botol
+                    {getBottleCount(transaction)} botol
                   </td>
                   <td className="py-3 px-4 text-right font-medium text-green-600 text-sm">
-                    {calculateTrashbagReward(transaction)} 🎁
+                    {getTrashbagReward(transaction)} 🎁
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex justify-center gap-1">
+                      <button
+                        onClick={() => handleEdit(transaction)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(transaction)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -281,11 +438,30 @@ export function TransactionsManagement() {
 
       {showForm && (
         <TransactionForm
-          onClose={() => setShowForm(false)}
+          transactionData={editingTransaction}
+          onClose={() => {
+            setShowForm(false);
+            setEditingTransaction(null);
+          }}
           onSubmit={() => {
             setShowForm(false);
+            setEditingTransaction(null);
             loadTransactions();
           }}
+        />
+      )}
+
+      {showDeleteConfirm && transactionToDelete && (
+        <ConfirmDialog
+          isOpen={showDeleteConfirm}
+          title="Hapus Transaksi"
+          message={`Apakah Anda yakin ingin menghapus transaksi ${transactionToDelete.student?.name} pada tanggal ${new Date(transactionToDelete.created_at).toLocaleDateString('id-ID')}? Tindakan ini tidak dapat dibatalkan.`}
+          confirmText="Hapus"
+          cancelText="Batal"
+          onConfirm={confirmDelete}
+          onCancel={cancelDelete}
+          loading={deleting}
+          type="danger"
         />
       )}
     </div>

@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
-import { ArrowDown, Wallet } from 'lucide-react';
+import { ArrowDown, Wallet, Gift, Star } from 'lucide-react';
 
 interface WithdrawalFormProps {
   studentId: string;
   currentBalance: number;
+  totalTrashbags?: number;
+  totalBottles?: number;
   onWithdrawalSubmitted: () => void;
 }
 
-export function WithdrawalForm({ studentId, currentBalance, onWithdrawalSubmitted }: WithdrawalFormProps) {
+export function WithdrawalForm({ studentId, currentBalance, totalTrashbags = 0, totalBottles = 0, onWithdrawalSubmitted }: WithdrawalFormProps) {
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -67,6 +69,37 @@ export function WithdrawalForm({ studentId, currentBalance, onWithdrawalSubmitte
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Penarikan Saldo</h2>
         <p className="text-gray-600">Ajukan penarikan saldo tabungan Anda</p>
       </div>
+
+      {/* Reward Information */}
+      {(totalTrashbags > 0 || totalBottles > 0) && (
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 mb-6 border border-purple-200">
+          <div className="flex items-center gap-3 mb-4">
+            <Gift className="w-6 h-6 text-purple-600" />
+            <h3 className="text-lg font-semibold text-purple-800">Reward Anda</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white rounded-lg p-4">
+              <div className="flex items-center gap-2">
+                <Gift className="w-5 h-5 text-pink-500" />
+                <span className="text-sm text-gray-600">Total Trashbag</span>
+              </div>
+              <p className="text-xl font-bold text-purple-800 mt-1">{totalTrashbags}</p>
+            </div>
+            <div className="bg-white rounded-lg p-4">
+              <div className="flex items-center gap-2">
+                <Star className="w-5 h-5 text-blue-500" />
+                <span className="text-sm text-gray-600">Total Botol</span>
+              </div>
+              <p className="text-xl font-bold text-blue-800 mt-1">{totalBottles.toLocaleString('id-ID')}</p>
+            </div>
+          </div>
+          <div className="mt-4 p-3 bg-purple-100 rounded-lg">
+            <p className="text-sm text-purple-700">
+              <span className="font-semibold">Hebat!</span> Terus kumpulkan botol untuk mendapatkan lebih banyak trashbag.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="bg-green-50 rounded-xl p-6 mb-6">
         <div className="flex items-center gap-3">

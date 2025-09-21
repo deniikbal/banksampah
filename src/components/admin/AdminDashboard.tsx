@@ -5,7 +5,7 @@ import { StudentsManagement } from './StudentsManagement';
 import { ClassesManagement } from './ClassesManagement';
 import { WasteTypesManagement } from './WasteTypesManagement';
 import { TransactionsManagement } from './TransactionsManagement';
-import { WithdrawalsManagement } from './WithdrawalsManagement';
+import { TrashbagWithdrawalsManagement } from './WithdrawalsManagement';
 import { Reports } from './Reports';
 import { 
   BarChart3, 
@@ -32,7 +32,7 @@ export function AdminDashboard() {
     { id: 'classes', label: 'Data Kelas', icon: School },
     { id: 'waste-types', label: 'Jenis Sampah', icon: Package },
     { id: 'transactions', label: 'Transaksi', icon: TrendingUp },
-    { id: 'withdrawals', label: 'Penarikan', icon: ArrowDown },
+    { id: 'withdrawals', label: 'Penarikan Trashbag', icon: ArrowDown },
     { id: 'reports', label: 'Laporan', icon: FileText },
   ];
 
@@ -169,7 +169,7 @@ export function AdminDashboard() {
           {activeTab === 'classes' && <ClassesManagement />}
           {activeTab === 'waste-types' && <WasteTypesManagement />}
           {activeTab === 'transactions' && <TransactionsManagement />}
-          {activeTab === 'withdrawals' && <WithdrawalsManagement />}
+          {activeTab === 'withdrawals' && <TrashbagWithdrawalsManagement />}
           {activeTab === 'reports' && <Reports />}
         </main>
       </div>

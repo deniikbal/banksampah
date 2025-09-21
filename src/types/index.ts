@@ -17,9 +17,10 @@ export interface Transaction {
   id: string;
   student_id: string;
   waste_type_id: string;
-  weight: number;
-  total_value: number;
+  bottle_count: number;
+  trashbag_reward: number;
   created_at: string;
+  updated_at?: string;
   student?: Student;
   waste_type?: WasteType;
 }
@@ -42,6 +43,17 @@ export interface Withdrawal {
   student?: Student;
 }
 
+export interface TrashbagWithdrawal {
+  id: string;
+  student_id: string;
+  amount: number;
+  description: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  updated_at: string;
+  student?: Student;
+}
+
 export interface User {
   role: 'student' | 'admin';
   student?: Student;
@@ -49,23 +61,21 @@ export interface User {
 
 export interface DashboardStats {
   totalStudents: number;
-  totalWasteCollected: number;
+  totalBottlesCollected: number;
   totalSavings: number;
   pendingWithdrawals: number;
   wasteByType: Array<{
     name: string;
-    weight: number;
-    value: number;
+    bottles: number;
   }>;
   monthlyData: Array<{
     month: string;
-    weight: number;
-    value: number;
+    bottles: number;
   }>;
   topStudents: Array<{
     student: Student;
     totalTransactions: number;
-    totalWeight: number;
+    totalBottles: number;
   }>;
 }
 

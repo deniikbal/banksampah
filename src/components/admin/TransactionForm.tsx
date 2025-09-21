@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Student, WasteType } from '../../types';
+import { Student, WasteType, Transaction } from '../../types';
 import { X, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { StudentForm } from './StudentForm';
 
 interface TransactionFormProps {
+  transactionData?: Transaction | null;
   onClose: () => void;
   onSubmit: () => void;
 }
 
-export function TransactionForm({ onClose, onSubmit }: TransactionFormProps) {
+export function TransactionForm({ transactionData, onClose, onSubmit }: TransactionFormProps) {
   const [students, setStudents] = useState<Student[]>([]);
   const [wasteTypes, setWasteTypes] = useState<WasteType[]>([]);
   const [formData, setFormData] = useState({
@@ -23,7 +24,23 @@ export function TransactionForm({ onClose, onSubmit }: TransactionFormProps) {
 
   useEffect(() => {
     loadData();
-  }, []);
+    if (transactionData) {
+      // Use bottle_count directly if available, otherwise calculate from weight (for legacy data)
+      let bottleCount = 0;
+      if (transactionData.bottle_count && transactionData.bottle_count > 0) {
+        bottleCount = transactionData.bottle_count;
+      } else {
+        // Legacy data: bottle_count should be available, fallback to 0
+        bottleCount = transactionData.bottle_count || 0;
+      }
+
+      setFormData({
+        student_id: transactionData.student_id,
+        waste_type_id: transactionData.waste_type_id,
+        bottle_count: bottleCount.toString()
+      });
+    }
+  }, [transactionData]);
 
   const loadData = async () => {
     try {
@@ -54,26 +71,76 @@ export function TransactionForm({ onClose, onSubmit }: TransactionFormProps) {
     ? Math.floor(bottleCount / selectedWasteType.trashbags_per_bottle)
     : 0;
 
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       const bottleCount = parseInt(formData.bottle_count);
+      const selectedWasteType = wasteTypes.find(wt => wt.id === formData.waste_type_id);
 
-      // Insert transaction (with weight = 0 and total_value = 0 since we only care about trashbag rewards)
-      const { error: transactionError } = await supabase
-        .from('transactions')
-        .insert({
+      if (!selectedWasteType) {
+        toast.error('Jenis sampah tidak valid');
+        return;
+      }
+
+      // No need to calculate weight anymore - using bottle_count directly
+
+      // Check if updated_at column exists by trying a simple query first
+      let hasUpdatedAtColumn = false;
+      try {
+        const { data: testData, error: testError } = await supabase
+          .from('transactions')
+          .select('updated_at')
+          .limit(1);
+
+        if (!testError) {
+          hasUpdatedAtColumn = true;
+        }
+      } catch (e) {
+        // Column doesn't exist, will handle gracefully
+        console.log('updated_at column may not exist in the database schema');
+      }
+
+      if (transactionData) {
+        // Update existing transaction - save bottle_count and trashbag_reward directly
+        const updateData: any = {
           student_id: formData.student_id,
           waste_type_id: formData.waste_type_id,
-          weight: 0,
-          total_value: 0
-        });
+          bottle_count: bottleCount,
+          trashbag_reward: trashbagReward
+        };
 
-      if (transactionError) throw transactionError;
+        // Only include updated_at if the column exists
+        if (hasUpdatedAtColumn) {
+          updateData.updated_at = new Date().toISOString();
+        }
 
-      toast.success(`Setoran berhasil dicatat! Siswa mendapatkan ${trashbagReward} trashbag.`);
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .update(updateData)
+          .eq('id', transactionData.id);
+
+        if (transactionError) throw transactionError;
+        toast.success('Transaksi berhasil diperbarui!');
+      } else {
+        // Insert new transaction - save bottle_count and trashbag_reward directly
+        const insertData: any = {
+          student_id: formData.student_id,
+          waste_type_id: formData.waste_type_id,
+          bottle_count: bottleCount,
+          trashbag_reward: trashbagReward
+        };
+
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert(insertData);
+
+        if (transactionError) throw transactionError;
+        toast.success(`Setoran berhasil dicatat! Siswa mendapatkan ${trashbagReward} trashbag.`);
+      }
+
       onSubmit();
     } catch (error) {
       console.error('Error saving transaction:', error);
@@ -87,7 +154,9 @@ export function TransactionForm({ onClose, onSubmit }: TransactionFormProps) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl p-4 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold text-gray-900">Input Setoran Sampah</h2>
+          <h2 className="text-lg font-bold text-gray-900">
+            {transactionData ? 'Edit Transaksi' : 'Input Setoran Sampah'}
+          </h2>
           <button
             onClick={onClose}
             className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -167,6 +236,11 @@ export function TransactionForm({ onClose, onSubmit }: TransactionFormProps) {
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               required
             />
+            {transactionData && (
+              <p className="text-xs text-gray-500 mt-1">
+                Note: Perubahan jumlah botol akan mempengaruhi reward trashbag
+              </p>
+            )}
           </div>
 
           {trashbagReward > 0 && (
