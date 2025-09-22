@@ -1,0 +1,88 @@
+export interface Student {
+  id: string;
+  nis: string;
+  name: string;
+  class: string;
+  created_at: string;
+}
+
+export interface WasteType {
+  id: string;
+  name: string;
+  trashbags_per_bottle: number;
+  created_at: string;
+}
+
+export interface Transaction {
+  id: string;
+  student_id: string;
+  waste_type_id: string;
+  bottle_count: number;
+  trashbag_reward: number;
+  created_at: string;
+  updated_at?: string;
+  student?: Student;
+  waste_type?: WasteType;
+}
+
+export interface Savings {
+  id: string;
+  student_id: string;
+  balance: number;
+  updated_at: string;
+  student?: Student;
+}
+
+export interface Withdrawal {
+  id: string;
+  student_id: string;
+  amount: number;
+  description: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  student?: Student;
+}
+
+export interface TrashbagWithdrawal {
+  id: string;
+  student_id: string;
+  amount: number;
+  description: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  updated_at: string;
+  student?: Student;
+}
+
+export interface User {
+  role: 'student' | 'admin';
+  student?: Student;
+}
+
+export interface DashboardStats {
+  totalStudents: number;
+  totalBottlesCollected: number;
+  totalSavings: number;
+  pendingWithdrawals: number;
+  wasteByType: Array<{
+    name: string;
+    bottles: number;
+  }>;
+  monthlyData: Array<{
+    month: string;
+    bottles: number;
+  }>;
+  topStudents: Array<{
+    student: Student;
+    totalTransactions: number;
+    totalBottles: number;
+  }>;
+}
+
+export interface Class {
+  id: string;
+  name: string;
+  teacher: string;
+  created_at: string;
+  updated_at: string;
+}
